@@ -13,6 +13,7 @@ Shared foundation for the agentsmirror.com mirror matrix: app-agnostic scripts a
 | `scripts/remove-latest-links-from-release-notes.sh` | 从旧 Release notes 移除 latest 短链区块 |
 | `scripts/update-download-stats.py` | 累计下载计数 + shields.io 徽标（R2 GraphQL Analytics 每日累加、新增跟踪对象自动回补） |
 | `workers/github-dispatcher/` | Cloudflare Cron → GitHub `workflow_dispatch` 扇出（`DISPATCH_TARGETS` JSON 多目标，兼容单目标 legacy vars） |
+| `workers/download-router/` | 双层镜像地域分流：CN→secondary S3 预签名、其余→全球 R2、下载计数、`/stats` 徽标代理；路径/元数据由 `ROUTE_CONFIG` 驱动 |
 | `docs/pitfalls.md` | 用真实镜像流量换来的踩坑记录 |
 
 **不在 kit 里的**（有意为之）：探测（probe）、下载、版本对齐、release body、Sparkle appcast 构建——这些是 per-app 逻辑，差异是本质的，留在各镜像仓库。

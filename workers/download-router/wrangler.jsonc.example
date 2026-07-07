@@ -1,0 +1,36 @@
+// Example deployment config for the generic download router. Each mirror keeps
+// its real wrangler.jsonc in its own repo (routes, zone_id, analytics binding,
+// GLOBAL_MIRROR_BASE_URL, SECONDARY_* secrets, and the per-mirror ROUTE_CONFIG).
+// Deploy by copying that file next to this worker's src/ and running
+// `npx wrangler deploy`.
+//
+// ROUTE_CONFIG may be a structured object (as below) or a JSON string.
+{
+  "name": "example-mirror-download-router",
+  "main": "src/index.js",
+  "compatibility_date": "2026-06-04",
+  "workers_dev": false,
+  "vars": {
+    "GLOBAL_MIRROR_BASE_URL": "https://example-r2.example.com",
+    "SECONDARY_COUNTRY_CODES": "CN",
+    "SECONDARY_S3_SIGNED_URL_TTL_SECONDS": "3600",
+    "ROUTE_CONFIG": {
+      "aliases": {
+        "/latest/win-x64": { "category": "installer", "filename": "App-x64.msix", "contentType": "application/vnd.ms-appx" },
+        "/latest/checksums": { "category": null, "filename": "SHA256SUMS.txt", "contentType": "text/plain; charset=utf-8" },
+        "/latest/appcast.xml": { "category": null }
+      },
+      "patterns": [
+        { "regex": "^/latest/mac/(arm64|intel)/[^/]+\\.zip$", "category": "update-full" },
+        { "regex": "^/latest/mac/(arm64|intel)/[^/]+\\.delta$", "category": "update-delta" }
+      ]
+    }
+  },
+  "routes": [
+    { "pattern": "example.com/latest/*", "zone_id": "<zone-id>" },
+    { "pattern": "example.com/stats/*", "zone_id": "<zone-id>" }
+  ],
+  "analytics_engine_datasets": [
+    { "binding": "DOWNLOAD_ANALYTICS", "dataset": "example_mirror_downloads" }
+  ]
+}
