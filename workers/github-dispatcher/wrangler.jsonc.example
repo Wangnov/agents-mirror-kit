@@ -1,0 +1,29 @@
+// Example deployment config. Each mirror keeps its real wrangler.jsonc in its
+// own repo (the config is per-instance infrastructure, not kit code); copy it
+// next to this worker's src/ when deploying:
+//
+//   cp <mirror-repo>/cloudflare/github-dispatcher/wrangler.jsonc .
+//   npx wrangler deploy
+{
+  "name": "example-mirror-dispatcher",
+  "main": "src/index.js",
+  "compatibility_date": "2026-05-23",
+  "workers_dev": false,
+  "triggers": {
+    "crons": ["7,22,37,52 * * * *"]
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    // Preferred: one instance fans out to any set of mirror repos.
+    "DISPATCH_TARGETS": "[{\"owner\":\"Wangnov\",\"repo\":\"codex-app-mirror\",\"inputs\":{\"force_release\":\"false\"}},{\"owner\":\"Wangnov\",\"repo\":\"agents-cli-mirror\"}]"
+    // Legacy single-target vars (GITHUB_OWNER / GITHUB_REPO / GITHUB_WORKFLOW /
+    // GITHUB_REF / GITHUB_FORCE_RELEASE) are still honoured when
+    // DISPATCH_TARGETS is unset.
+  },
+  "secrets": {
+    "required": ["GITHUB_TOKEN"]
+  }
+}

@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate kit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate shell scripts
+        shell: bash
+        run: bash -n scripts/*.sh
+
+      - name: Test download stats fixture
+        shell: bash
+        run: python3 scripts/test-update-download-stats.py
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+
+      - name: Test github-dispatcher worker
+        shell: bash
+        run: npm run check --prefix workers/github-dispatcher
