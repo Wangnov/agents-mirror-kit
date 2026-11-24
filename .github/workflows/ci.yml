@@ -21,6 +21,10 @@ jobs:
         shell: bash
         run: bash -n scripts/*.sh
 
+      - name: Test R2 upload retry fixture
+        shell: bash
+        run: bash scripts/test-sync-r2.sh
+
       - name: Test download stats fixture
         shell: bash
         run: python3 scripts/test-update-download-stats.py

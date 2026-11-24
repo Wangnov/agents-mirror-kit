@@ -38,9 +38,12 @@
 
 ## R2 上传
 
-### 大文件上传偶发卡死
-**症状**：`aws s3 cp` 上传数百 MB 安装包到 R2 偶发无限挂起，拖死整个发布 run。
-**对策**：`sync-r2.sh` 支持 `R2_CLI_CONNECT_TIMEOUT_SECONDS` / `R2_CLI_READ_TIMEOUT_SECONDS`，并提供 `R2_UPLOAD_MODE=put-object` 备选路径。
+### 大文件上传偶发卡死与 `CompleteMultipartUpload: InvalidPart`
+**症状**：
+1. `aws s3 cp` 上传数百 MB 安装包到 R2 偶发无限挂起，拖死整个发布 run。
+2. GitHub Runner 预装的新版 AWS CLI v2（`>= 2.23`）连续上传几十个大文件（DMG / MSIX / `.delta`）到 R2 时，偶发在分片合并阶段报错 `An error occurred (InvalidPart) when calling the CompleteMultipartUpload operation: One or more of the specified parts could not be found`。
+**根因**：AWS CLI v2 默认开启 `when_supported` 分片附加 CRC 校验，且默认按 `8MB` 分片 × `10` 并发线程切分大文件（790MB 安装包多达 100 个分片）；一旦单个分片在 R2 侧出现瞬时一致性抖动，同一 `UploadId` 无法仅靠 SDK 内部重试恢复。
+**对策**：`sync-r2.sh` 默认设置 `AWS_REQUEST_CHECKSUM_CALCULATION=when_required`、`AWS_RESPONSE_CHECKSUM_VALIDATION=when_required`、`64MB` 分片阈值/大小与 `4` 并发连接，默认开启 CLI 连接/读取超时（`30s` / `180s`），并在最外层提供整对象指数退避重试（`R2_UPLOAD_ATTEMPTS`，默认 4 次，重新发起全新 `UploadId`），同时保留 `R2_UPLOAD_MODE=put-object` 备选路径。
 
 ## 更新通道（macOS Sparkle）
 

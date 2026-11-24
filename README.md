@@ -8,7 +8,7 @@ Shared foundation for the agentsmirror.com mirror matrix: app-agnostic scripts a
 
 | 组件 | 说明 |
 |---|---|
-| `scripts/sync-r2.sh` | 单对象上传 R2（content-type/disposition/cache-control、`R2_UPLOAD_MODE` s3-cp/put-object 双模式、CLI 超时控制） |
+| `scripts/sync-r2.sh` | 单对象/前缀上传 R2（content-type/disposition/cache-control、`64MB` 分片与 AWS CLI v2 校验兼容、整对象指数退避重试、`R2_UPLOAD_MODE` 双模式、CLI 超时控制） |
 | `scripts/clear-r2-prefix.sh` | 清理 R2 指定前缀（staging 清场） |
 | `scripts/remove-latest-links-from-release-notes.sh` | 从旧 Release notes 移除 latest 短链区块 |
 | `scripts/update-download-stats.py` | 累计下载计数 + shields.io 徽标（R2 GraphQL Analytics 每日累加、新增跟踪对象自动回补） |
