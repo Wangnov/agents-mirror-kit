@@ -4,8 +4,9 @@
 
 ## 职责
 
-- **地域分流**：`SECONDARY_COUNTRY_CODES`（默认 CN）命中且配了 secondary S3 时，对副镜像签发 SigV4 预签名 URL（302）；否则重定向到全球 R2（`GLOBAL_MIRROR_BASE_URL`）。
-- **下载计数**：GET 且 category 非空时写 Analytics Engine（`DOWNLOAD_ANALYTICS` binding），失败不阻塞跳转。
+- **地域分流**：`SECONDARY_COUNTRY_CODES`（默认 CN）命中且配了 secondary S3 时，对副镜像签发 SigV4 预签名 URL（302，支持 `SECONDARY_S3_METADATA_TTL_SECONDS` 与 `SECONDARY_S3_SIGNED_URL_TTL_SECONDS` 分级有效期）；否则重定向到全球 R2（`GLOBAL_MIRROR_BASE_URL`）。
+- **访问保护与反盗链（可选，默认关闭）**：`BLOCK_MODE`（`off` / `shadow` / `enforce`，坏配置 fail-open）支持 `BLOCKED_REFERER_HOSTS`（盗链页面 `302` 回跳首页）与 `BLOCKED_UA_SUBSTRINGS`（含 UTF-8 中文 ByteString 解码，返回 `403` 合规 JSON + RFC 6903 `Link` 头），采样写入独立 `ABUSE_ANALYTICS` 数据集。
+- **下载计数**：GET 且 category 非空时写 Analytics Engine（`DOWNLOAD_ANALYTICS` binding，设 `ANALYTICS_EXTENDED_BLOBS="1"` 可追加路径、Referer 域名、UA、ASN 与协议指纹），失败不阻塞跳转。
 - **徽标代理**：`/stats/downloads.json` 从 R2 proxy 成 JSON（防同域官网 SPA 吞路径），带 CORS + max-age=300。
 
 ## ROUTE_CONFIG

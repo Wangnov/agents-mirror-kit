@@ -13,7 +13,12 @@
   "vars": {
     "GLOBAL_MIRROR_BASE_URL": "https://example-r2.example.com",
     "SECONDARY_COUNTRY_CODES": "CN",
-    "SECONDARY_S3_SIGNED_URL_TTL_SECONDS": "3600",
+    "SECONDARY_S3_SIGNED_URL_TTL_SECONDS": "600",
+    "SECONDARY_S3_METADATA_TTL_SECONDS": "120",
+    "ANALYTICS_EXTENDED_BLOBS": "1",
+    "BLOCK_MODE": "off",
+    "BLOCKED_REFERER_HOSTS": [],
+    "BLOCKED_UA_SUBSTRINGS": [],
     "ROUTE_CONFIG": {
       "aliases": {
         "/latest/win-x64": { "category": "installer", "filename": "App-x64.msix", "contentType": "application/vnd.ms-appx" },
@@ -31,6 +36,7 @@
     { "pattern": "example.com/stats/*", "zone_id": "<zone-id>" }
   ],
   "analytics_engine_datasets": [
-    { "binding": "DOWNLOAD_ANALYTICS", "dataset": "example_mirror_downloads" }
+    { "binding": "DOWNLOAD_ANALYTICS", "dataset": "example_mirror_downloads" },
+    { "binding": "ABUSE_ANALYTICS", "dataset": "example_mirror_abuse" }
   ]
 }
