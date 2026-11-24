@@ -17,6 +17,12 @@
     "SECONDARY_S3_METADATA_TTL_SECONDS": "120",
     "ANALYTICS_EXTENDED_BLOBS": "1",
     "BLOCK_MODE": "off",
+    "TERMS_HOME_URL": "https://example.com/",
+    "TERMS_URL": "https://example.com/terms/",
+    "SOURCE_REPO_URL": "https://github.com/example/example-mirror",
+    "OFFICIAL_CHANNELS_HINT": "example.com/download",
+    "INFRA_ATTRIBUTION": "part of the non-commercial open-source mirror network",
+    "INFRA_ATTRIBUTION_CN": "在线分发路由与存储属于开源公益镜像基础设施",
     "BLOCKED_REFERER_HOSTS": [],
     "BLOCKED_UA_SUBSTRINGS": [],
     "ROUTE_CONFIG": {
