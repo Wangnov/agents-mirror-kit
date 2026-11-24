@@ -152,10 +152,18 @@ function extractRequestMeta(request, url) {
 function parseRefererHost(rawReferer) {
   if (!rawReferer) return "";
   try {
-    return new URL(rawReferer).hostname.toLowerCase();
+    return trimDots(new URL(rawReferer).hostname.toLowerCase());
   } catch {
     return "";
   }
+}
+
+function trimDots(value) {
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === ".") start += 1;
+  while (end > start && value[end - 1] === ".") end -= 1;
+  return value.slice(start, end);
 }
 
 function getAccessPolicy(env) {
@@ -177,7 +185,7 @@ function getAccessPolicy(env) {
     .map((item) => decodeHeaderUtf8(item).trim().toLowerCase())
     .filter(Boolean);
   const blockedReferers = parseStringList(refSource)
-    .map((item) => item.trim().toLowerCase().replace(/^\.+|\.+$/g, ""))
+    .map((item) => trimDots(item.trim().toLowerCase()))
     .filter(Boolean);
 
   compiledPolicyCache = { mode, blockedUas, blockedReferers };
@@ -237,11 +245,19 @@ function matchesSubstring(lowerUa, substrings) {
 }
 
 function evaluateAccessPolicy(request, url, env, country, reqMeta) {
-  const policy = getAccessPolicy(env);
-  if (policy.mode === "off") return null;
-
   const homeUrl = env.TERMS_HOME_URL || new URL("/", url.origin).toString();
   const termsUrl = env.TERMS_URL || new URL("/terms/", homeUrl).toString();
+
+  // Loop-breaker: requests bounced here from the R2 custom domain's 307 Single
+  // Redirect Rule carry ?mirror_policy=r2 and MUST terminate in 403 even if
+  // BLOCK_MODE is later switched to shadow/off, preventing a 302<->307 loop.
+  if (url.searchParams.get("mirror_policy") === "r2") {
+    recordAbuse(env, "blocked-r2-redirect", "enforce", country, reqMeta);
+    return unauthorizedClientResponse(request, url, env, termsUrl);
+  }
+
+  const policy = getAccessPolicy(env);
+  if (policy.mode === "off") return null;
 
   if (matchesDomainSuffix(reqMeta.refererHost, policy.blockedReferers)) {
     recordAbuse(env, "hotlink-redirect", policy.mode, country, reqMeta);

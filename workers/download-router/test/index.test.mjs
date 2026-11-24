@@ -303,6 +303,15 @@ test("shadow mode logs abuse without blocking and malformed block lists fail ope
     }),
   );
   assert.equal(brokenRes.status, 302);
+
+  // Loop-breaker: ?mirror_policy=r2 always returns 403 even when BLOCK_MODE=off.
+  const r2Bounced = await worker.fetch(
+    new Request("https://codexapp.agentsmirror.com/latest/win-x64?mirror_policy=r2", {
+      headers: { "User-Agent": "YuluoGptSetup/2.0" },
+    }),
+    baseEnv({ BLOCK_MODE: "off" }),
+  );
+  assert.equal(r2Bounced.status, 403);
 });
 
 test("allows legitimate curl, Sparkle, Tauri updater, and release verifier UAs", async () => {
