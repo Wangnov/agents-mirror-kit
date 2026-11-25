@@ -19,6 +19,9 @@ let compiledPolicyKey = null;
 
 export default {
   async fetch(request, env) {
+    if (hasRawDotOrBackslashSegment(request.url)) {
+      return new Response("Not found", { status: 404 });
+    }
     const url = new URL(request.url);
 
     if (url.pathname.startsWith("/stats/")) {
@@ -42,12 +45,24 @@ export default {
       return new Response("Not found", { status: 404 });
     }
 
+    const decodedPathname = decodeSafePathname(url.pathname);
+    if (!decodedPathname) {
+      return new Response("Not found", { status: 404 });
+    }
+
     const country = request.cf?.country || request.headers.get("CF-IPCountry") || "";
     const reqMeta = extractRequestMeta(request, url);
 
     const policyResponse = evaluateAccessPolicy(request, url, env, country, reqMeta);
     if (policyResponse) {
       return policyResponse;
+    }
+
+    if (request.method !== "GET" && request.method !== "HEAD") {
+      return new Response("Method not allowed", {
+        status: 405,
+        headers: { Allow: "GET, HEAD" },
+      });
     }
 
     const rawCategory = assetCategoryForPath(url.pathname, config);
@@ -61,13 +76,14 @@ export default {
 
     if (secondaryCountryCodes.has(country.toUpperCase()) && hasSecondaryS3Config(env)) {
       try {
-        const objectKey = objectKeyForPath(url.pathname, env.SECONDARY_S3_PREFIX || "");
+        const objectKey = objectKeyForPath(decodedPathname, env.SECONDARY_S3_PREFIX || "");
         const downloadMetadata = downloadMetadataForPath(url.pathname, config);
         const rawTtl =
           rawCategory === null && env.SECONDARY_S3_METADATA_TTL_SECONDS
             ? env.SECONDARY_S3_METADATA_TTL_SECONDS
             : env.SECONDARY_S3_SIGNED_URL_TTL_SECONDS;
-        const signedUrl = await presignS3GetUrl({
+        const signedUrl = await presignS3Url({
+          method: request.method,
           endpoint: env.SECONDARY_S3_ENDPOINT,
           bucket: env.SECONDARY_S3_BUCKET,
           key: objectKey,
@@ -542,13 +558,79 @@ function withPathAndSearch(baseUrl, pathname, search) {
   return target;
 }
 
+function decodeSafePathname(pathname) {
+  if (!pathname || !pathname.startsWith("/")) {
+    return null;
+  }
+  const rawSegments = pathname.slice(1).split("/");
+  const decodedSegments = [];
+  for (const seg of rawSegments) {
+    if (!seg) {
+      return null;
+    }
+    let decoded;
+    try {
+      decoded = decodeURIComponent(seg);
+    } catch {
+      return null;
+    }
+    if (
+      !decoded ||
+      decoded === "." ||
+      decoded.includes("..") ||
+      decoded.includes("/") ||
+      decoded.includes("\\") ||
+      /[\x00-\x1f\x7f]/.test(decoded)
+    ) {
+      return null;
+    }
+    decodedSegments.push(decoded);
+  }
+  return `/${decodedSegments.join("/")}`;
+}
+
+function hasRawDotOrBackslashSegment(rawUrl) {
+  const str = String(rawUrl || "");
+  const schemeEnd = str.indexOf("://");
+  const pathStart = schemeEnd === -1 ? str.indexOf("/") : str.indexOf("/", schemeEnd + 3);
+  if (pathStart === -1) {
+    return false;
+  }
+  let end = str.length;
+  const q = str.indexOf("?", pathStart);
+  if (q !== -1 && q < end) end = q;
+  const h = str.indexOf("#", pathStart);
+  if (h !== -1 && h < end) end = h;
+  const rawPath = str.slice(pathStart, end);
+  if (rawPath.includes("\\") || rawPath.includes("//")) {
+    return true;
+  }
+  for (const seg of rawPath.slice(1).split("/")) {
+    const lower = seg.toLowerCase();
+    if (
+      seg === "." ||
+      seg === ".." ||
+      lower === "%2e" ||
+      lower === "%2e%2e" ||
+      lower === ".%2e" ||
+      lower === "%2e." ||
+      lower.includes("%2f") ||
+      lower.includes("%5c")
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function objectKeyForPath(pathname, prefix) {
-  const cleanPrefix = prefix.replace(/^\/+|\/+$/g, "");
+  const cleanPrefix = prefix.replace(/^\/+|\/+$/g, "").replace(/\/+/g, "/");
   const cleanPath = pathname.replace(/^\/+/, "");
   return cleanPrefix ? `${cleanPrefix}/${cleanPath}` : cleanPath;
 }
 
-async function presignS3GetUrl(options) {
+async function presignS3Url(options) {
+  const method = options.method === "HEAD" ? "HEAD" : "GET";
   const endpointUrl = new URL(options.endpoint);
   const now = new Date();
   const amzDate = formatAmzDate(now);
@@ -568,7 +650,7 @@ async function presignS3GetUrl(options) {
   const canonicalQuery = canonicalQueryString(queryParams);
   const canonicalHeaders = `host:${endpointUrl.host}\n`;
   const canonicalRequest = [
-    "GET",
+    method,
     canonicalUri,
     canonicalQuery,
     canonicalHeaders,

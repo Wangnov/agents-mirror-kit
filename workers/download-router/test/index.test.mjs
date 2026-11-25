@@ -463,6 +463,94 @@ test("maps upstream badge failures to 404 and rejects other stats paths/methods"
   assert.equal(post.headers.get("Allow"), "GET, HEAD");
 });
 
+test("presigns HEAD with HEAD method on CN secondary S3, avoids double-encoding %20, and rejects encoded path traversal", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: new Date("2026-11-25T04:00:00Z") });
+  const downloads = createAnalytics();
+  const secEnv = baseEnv({
+    DOWNLOAD_ANALYTICS: downloads,
+    SECONDARY_COUNTRY_CODES: "CN",
+    SECONDARY_S3_ENDPOINT: "https://s3.example.com",
+    SECONDARY_S3_BUCKET: "mirror-bucket",
+    SECONDARY_S3_REGION: "auto",
+    SECONDARY_S3_ACCESS_KEY_ID: "access-key",
+    SECONDARY_S3_SECRET_ACCESS_KEY: "secret-key",
+    SECONDARY_S3_PREFIX: "edge",
+  });
+
+  const getRes = await worker.fetch(
+    new Request("https://codexapp.agentsmirror.com/latest/mac/arm64/Update%20A.delta", {
+      method: "GET",
+      headers: { "CF-IPCountry": "CN" },
+    }),
+    secEnv,
+  );
+  const headRes = await worker.fetch(
+    new Request("https://codexapp.agentsmirror.com/latest/mac/arm64/Update%20A.delta", {
+      method: "HEAD",
+      headers: { "CF-IPCountry": "CN" },
+    }),
+    secEnv,
+  );
+  assert.equal(getRes.status, 302);
+  assert.equal(headRes.status, 302);
+
+  const getLoc = new URL(getRes.headers.get("Location"));
+  const headLoc = new URL(headRes.headers.get("Location"));
+  // Single-encoded %20 (matches Global R2 path semantics; never %2520).
+  assert.equal(getLoc.pathname, "/mirror-bucket/edge/latest/mac/arm64/Update%20A.delta");
+  assert.equal(headLoc.pathname, "/mirror-bucket/edge/latest/mac/arm64/Update%20A.delta");
+  assert.equal(getLoc.searchParams.get("X-Amz-Date"), headLoc.searchParams.get("X-Amz-Date"));
+  // SigV4 binds HTTP method into CanonicalRequest, so HEAD and GET signatures must differ.
+  assert.notEqual(
+    getLoc.searchParams.get("X-Amz-Signature"),
+    headLoc.searchParams.get("X-Amz-Signature"),
+  );
+  assert.equal(downloads.points.length, 1);
+
+  for (const unsafePath of [
+    "/latest/mac/arm64/evil%2Fsub.delta",
+    "/latest/mac/arm64/evil%5Csub.delta",
+    "/latest/mac/arm64/%2e%2e.delta",
+  ]) {
+    const bad = await worker.fetch(
+      new Request(`https://codexapp.agentsmirror.com${unsafePath}`, {
+        headers: { "CF-IPCountry": "CN" },
+      }),
+      secEnv,
+    );
+    assert.equal(bad.status, 404, `expected 404 for ${unsafePath}`);
+  }
+
+  const postLatest = await worker.fetch(
+    new Request("https://codexapp.agentsmirror.com/latest/win-x64", { method: "POST" }),
+    secEnv,
+  );
+  assert.equal(postLatest.status, 405);
+  assert.equal(postLatest.headers.get("Allow"), "GET, HEAD");
+
+  // Raw un-normalized dot segments (%2e%2e) and double slashes in SECONDARY_S3_PREFIX:
+  const rawDotRes = await worker.fetch(
+    {
+      url: "https://codexapp.agentsmirror.com/latest/mac/%2e%2e/win-x64",
+      method: "GET",
+      headers: new Headers({ "CF-IPCountry": "CN" }),
+    },
+    secEnv,
+  );
+  assert.equal(rawDotRes.status, 404);
+
+  const slashPrefixRes = await worker.fetch(
+    new Request("https://codexapp.agentsmirror.com/latest/win-x64", {
+      headers: { "CF-IPCountry": "CN" },
+    }),
+    { ...secEnv, SECONDARY_S3_PREFIX: "team//east/" },
+  );
+  assert.equal(
+    new URL(slashPrefixRes.headers.get("Location")).pathname,
+    "/mirror-bucket/team/east/latest/win-x64",
+  );
+});
+
 async function withFakeFetch(fake, run) {
   const originalFetch = globalThis.fetch;
   globalThis.fetch = fake;
