@@ -1,6 +1,6 @@
 # agents-mirror-kit
 
-[agentsmirror.com](https://codexapp.agentsmirror.com) 镜像矩阵（[codex-app-mirror](https://github.com/Wangnov/codex-app-mirror)、[claude-app-mirror](https://github.com/Wangnov/claude-app-mirror)、agents-cli-mirror）的共享基础层：与"镜像哪个应用"无关的脚本与 Cloudflare Worker 源码，在一处维护、多镜像复用。
+[agentsmirror.com](https://agentsmirror.com) 镜像矩阵（[codex-app-mirror](https://github.com/Wangnov/codex-app-mirror)、[claude-app-mirror](https://github.com/Wangnov/claude-app-mirror)、[agents-cli-mirror](https://github.com/Wangnov/agents-cli-mirror)）的共享基础层：与"镜像哪个应用"无关的脚本与 Cloudflare Worker 源码，在一处维护、多镜像复用。
 
 Shared foundation for the agentsmirror.com mirror matrix: app-agnostic scripts and Cloudflare Worker sources, maintained once and consumed by every mirror repo.
 
